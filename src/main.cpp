@@ -25,9 +25,10 @@ void setup() {
   pinMode(SHIFT_DATA, OUTPUT);
 }
 
-void displayDigit(uint8_t num) {
+void displayDigit(uint8_t num, bool dp = false) {
   digitalWrite(SHIFT_CS, LOW);
-  shiftOut(SHIFT_DATA, SHIFT_CLK, MSBFIRST, digitTable[num]);
+  shiftOut(SHIFT_DATA, SHIFT_CLK, MSBFIRST,
+           digitTable[num] | (dp ? 0b10000000 : 0));
   digitalWrite(SHIFT_CS, HIGH);
 }
 

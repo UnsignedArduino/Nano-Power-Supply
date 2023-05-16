@@ -1,69 +1,68 @@
 #include <Arduino.h>
+/* SevSegShift Counter Example
 
-const uint8_t SHIFT_CS = 9;
-const uint8_t SHIFT_CLK = 10;
-const uint8_t SHIFT_DATA = 8;
+ Copyright 2020 Dean Reading,
+ Copyright 2020 Jens Breidenstein
 
-const uint8_t SEGMENT_NUM = 4;
-const uint8_t SEGMENT_CONTROL[SEGMENT_NUM] = {7, 6, 5, 4};
+ This example demonstrates a very simple use of the SevSegShift library with a 4
+ digit display. It displays a counter that counts up, showing deci-seconds.
+ */
 
-const uint8_t DIGIT_TABLE[] = {
-  0b00111111, // 0
-  0b00000110, // 1
-  0b01011011, // 2
-  0b01001111, // 3
-  0b01100110, // 4
-  0b01101101, // 5
-  0b01111101, // 6
-  0b00000111, // 7
-  0b01111111, // 8
-  0b01101111  // 9
-};
+#include "SevSegShift.h"
 
-void beginDigits() {
-  pinMode(SHIFT_CS, OUTPUT);
-  pinMode(SHIFT_CLK, OUTPUT);
-  pinMode(SHIFT_DATA, OUTPUT);
-  for (uint8_t i = 0; i < SEGMENT_NUM; i++) {
-    pinMode(SEGMENT_CONTROL[i], OUTPUT);
-    digitalWrite(SEGMENT_CONTROL[i], LOW);
-  }
-}
+#define SHIFT_PIN_SHCP 6
+#define SHIFT_PIN_STCP 7
+#define SHIFT_PIN_DS 8
 
-void displayDigit(uint8_t num, uint8_t pos, bool dp = false, uint16_t d = 5) {
-  digitalWrite(SHIFT_CS, LOW);
-  shiftOut(SHIFT_DATA, SHIFT_CLK, MSBFIRST,
-           DIGIT_TABLE[num] | (dp ? 0b10000000 : 0));
-  digitalWrite(SHIFT_CS, HIGH);
-  digitalWrite(SEGMENT_CONTROL[pos], HIGH);
-  delay(d);
-  digitalWrite(SEGMENT_CONTROL[pos], LOW);
-}
-
-void displayNumber(uint16_t num) {
-  if (num == 0) {
-    displayDigit(0, SEGMENT_NUM - 1);
-  } else {
-    for (int8_t p = SEGMENT_NUM - 1; p >= 0; p--) {
-      if (num > 0) {
-        displayDigit(num % 10, p);
-        num /= 10;
-      }
-    }
-  }
-}
+/* Instantiate a seven segment controller object with:
+  - segment pins controlled via 1 shift register and
+  - digit pins connected to the Arduino directly
+  */
+SevSegShift
+  sevsegshift(SHIFT_PIN_DS, SHIFT_PIN_SHCP, SHIFT_PIN_STCP,
+              1,   /* number of shift registers there is only 1 Shiftregister
+                      used for all Segments (digits are on Controller)
+                      default value = 2 (see SevSegShift example)
+                      */
+              true /* Digits are connected to Arduino directly
+                      default value = false (see SevSegShift example)
+                    */
+  );
 
 void setup() {
-  Serial.begin(9600);
+  byte numDigits = 4;
+  byte digitPins[] = {5, 4, 3, 2}; // These are the PINS of the ** Arduino **
+  byte segmentPins[] = {
+    0, 2, 4, 6, 7, 1, 3, 5}; // these are the PINs of the ** Shift register **
+  bool resistorsOnSegments = true; // 'false' means resistors are on digit pins
+  byte hardwareConfig = COMMON_CATHODE; // See README.md for options
+  bool updateWithDelays = false;      // Default 'false' is Recommended
+  bool leadingZeros =
+    false; // Use 'true' if you'd like to keep the leading zeros
+  bool disableDecPoint =
+    false; // Use 'true' if your decimal point doesn't exist or isn't connected
 
-  beginDigits();
+  sevsegshift.begin(hardwareConfig, numDigits, digitPins, segmentPins,
+                    resistorsOnSegments, updateWithDelays, leadingZeros,
+                    disableDecPoint);
+  sevsegshift.setBrightness(90);
 }
 
 void loop() {
-  for (uint16_t i = 0; i < 10000; i++) {
-    uint32_t s = millis();
-    while (millis() - s < 10) {
-      displayNumber(i);
+  static unsigned long timer = millis();
+  static int deciSeconds = 0;
+
+  if (millis() - timer >= 100) {
+    timer += 100;
+    deciSeconds++; // 100 milliSeconds is equal to 1 deciSecond
+
+    if (deciSeconds == 10000) { // Reset to 0 after counting for 1000 seconds.
+      deciSeconds = 0;
     }
+    sevsegshift.setNumber(deciSeconds, 1);
   }
+
+  sevsegshift.refreshDisplay(); // Must run repeatedly
 }
+
+/// END ///

@@ -40,6 +40,19 @@ void displayDigit(uint8_t num, uint8_t pos, bool dp = false, uint16_t d = 5) {
   digitalWrite(SEGMENT_CONTROL[pos], LOW);
 }
 
+void displayNumber(uint16_t num) {
+  if (num == 0) {
+    displayDigit(0, SEGMENT_NUM - 1);
+  } else {
+    for (int8_t p = SEGMENT_NUM - 1; p >= 0; p--) {
+      if (num > 0) {
+        displayDigit(num % 10, p);
+        num /= 10;
+      }
+    }
+  }
+}
+
 void setup() {
   Serial.begin(9600);
 
@@ -47,9 +60,10 @@ void setup() {
 }
 
 void loop() {
-  for (uint8_t i = 0; i < 4; i++) {
-    for (uint8_t j = 0; j < 10; j++) {
-      displayDigit(j, i, false, 500);
+  for (uint16_t i = 0; i < 10000; i++) {
+    uint32_t s = millis();
+    while (millis() - s < 10) {
+      displayNumber(i);
     }
   }
 }

@@ -3,6 +3,11 @@
 #include <SPI.h>
 #include <SevSegShift.h>
 
+const uint8_t POT_MIN = 0;
+const uint32_t MILLIVOLT_MIN = 1280;
+const uint8_t POT_MAX = 187;
+const uint32_t MILLIVOLT_MAX = 24000;
+
 const uint8_t SHIFT_PIN_SHCP = 6;
 const uint8_t SHIFT_PIN_STCP = 7;
 const uint8_t SHIFT_PIN_DS = 8;
@@ -78,16 +83,12 @@ ISR(PCINT2_vect) {
 }
 
 void loop() {
-  if (value > 255) {
-    value = 0;
-  } else if (value < 0) {
-    value = 255;
-  }
-
+  value = constrain(value, POT_MIN, POT_MAX);
   if (value != prevValue) {
     writePotValue(value);
+    const float volts =
+      map(value, POT_MIN, POT_MAX, MILLIVOLT_MIN, MILLIVOLT_MAX) / 1000.0;
+    display.setNumberF(volts, volts > 10 ? 1 : 2);
     prevValue = value;
   }
-
-  display.setNumber(value);
 }

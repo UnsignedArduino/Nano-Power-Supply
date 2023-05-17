@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <Button.h>
 #include <Rotary.h>
 #include <SPI.h>
 #include <SevSegShift.h>
@@ -17,6 +18,10 @@ const uint8_t ENCODER_B = 3;
 
 const uint8_t POT_CS = 10;
 
+const uint8_t BTN = 4;
+const uint8_t RELAY = 5;
+const uint8_t LED = A5;
+
 const uint8_t numDigits = 4;
 const uint8_t digitPins[] = {A1, A2, A3, A4};
 const uint8_t segmentPins[] = {0, 2, 4, 6, 7, 1, 3, 5};
@@ -26,12 +31,15 @@ const bool updateWithDelays = false;
 const bool leadingZeros = false;
 const bool disableDecPoint = false;
 
-SevSegShift display(SHIFT_PIN_DS, SHIFT_PIN_SHCP, SHIFT_PIN_STCP, 1, true);
-
+SevSegShift display =
+  SevSegShift(SHIFT_PIN_DS, SHIFT_PIN_SHCP, SHIFT_PIN_STCP, 1, true);
 Rotary encoder = Rotary(ENCODER_A, ENCODER_B);
+Button btn = Button(BTN);
 
 volatile int16_t value = 0;
 int16_t prevValue = -1;
+
+bool on = false;
 
 void writePotValue(uint8_t value) {
   SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
@@ -41,6 +49,12 @@ void writePotValue(uint8_t value) {
 
   digitalWrite(POT_CS, HIGH);
   SPI.endTransaction();
+}
+
+void setRelayState(bool o) {
+  on = o;
+  digitalWrite(RELAY, !on);
+  digitalWrite(LED, on);
 }
 
 void setup() {
@@ -65,6 +79,12 @@ void setup() {
   digitalWrite(POT_CS, HIGH);
 
   writePotValue(value);
+
+  pinMode(RELAY, OUTPUT);
+  pinMode(LED, OUTPUT);
+  setRelayState(LOW);
+
+  btn.begin();
 }
 
 ISR(TIMER1_COMPA_vect) {
@@ -90,5 +110,9 @@ void loop() {
       map(value, POT_MIN, POT_MAX, MILLIVOLT_MIN, MILLIVOLT_MAX) / 1000.0;
     display.setNumberF(volts, volts > 10 ? 1 : 2);
     prevValue = value;
+  }
+
+  if (btn.pressed()) {
+    setRelayState(!on);
   }
 }

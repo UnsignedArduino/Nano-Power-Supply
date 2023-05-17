@@ -19,8 +19,8 @@ const uint8_t ENCODER_B = 3;
 const uint8_t POT_CS = 10;
 
 const uint8_t BTN = 4;
-const uint8_t RELAY = 5;
-const uint8_t LED = A5;
+const uint8_t RELAY = A0;
+const uint8_t LED = 5;
 
 const uint8_t numDigits = 4;
 const uint8_t digitPins[] = {A1, A2, A3, A4};

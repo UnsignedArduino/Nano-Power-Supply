@@ -108,7 +108,7 @@ void loop() {
     writePotValue(value);
     const float volts =
       map(value, POT_MIN, POT_MAX, MILLIVOLT_MIN, MILLIVOLT_MAX) / 1000.0;
-    display.setNumberF(volts, volts > 10 ? 1 : 2);
+    display.setNumberF(volts, 2);
     prevValue = value;
   }
 

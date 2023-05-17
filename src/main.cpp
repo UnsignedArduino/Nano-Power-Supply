@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <Rotary.h>
+#include <SPI.h>
 #include <SevSegShift.h>
 
 const uint8_t SHIFT_PIN_SHCP = 6;
@@ -8,6 +9,8 @@ const uint8_t SHIFT_PIN_DS = 8;
 
 const uint8_t ENCODER_A = 2;
 const uint8_t ENCODER_B = 3;
+
+const uint8_t POT_CS = 10;
 
 const uint8_t numDigits = 4;
 const uint8_t digitPins[] = {A1, A2, A3, A4};
@@ -23,6 +26,17 @@ SevSegShift display(SHIFT_PIN_DS, SHIFT_PIN_SHCP, SHIFT_PIN_STCP, 1, true);
 Rotary encoder = Rotary(ENCODER_A, ENCODER_B);
 
 volatile int16_t value = 0;
+int16_t prevValue = -1;
+
+void writePotValue(uint8_t value) {
+  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
+  digitalWrite(POT_CS, LOW);
+
+  SPI.transfer(value);
+
+  digitalWrite(POT_CS, HIGH);
+  SPI.endTransaction();
+}
 
 void setup() {
   display.begin(hardwareConfig, numDigits, (uint8_t*)digitPins,
@@ -40,6 +54,12 @@ void setup() {
   PCICR |= (1 << PCIE2);
   PCMSK2 |= (1 << PCINT18) | (1 << PCINT19);
   sei();
+
+  SPI.begin();
+  pinMode(POT_CS, OUTPUT);
+  digitalWrite(POT_CS, HIGH);
+
+  writePotValue(value);
 }
 
 ISR(TIMER1_COMPA_vect) {
@@ -58,10 +78,15 @@ ISR(PCINT2_vect) {
 }
 
 void loop() {
-  if (value > 9999) {
+  if (value > 255) {
     value = 0;
   } else if (value < 0) {
-    value = 9999;
+    value = 255;
+  }
+
+  if (value != prevValue) {
+    writePotValue(value);
+    prevValue = value;
   }
 
   display.setNumber(value);

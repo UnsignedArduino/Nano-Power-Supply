@@ -100,10 +100,10 @@ ISR(PCINT2_vect) {
   } else if (result == DIR_CCW) {
     value--;
   }
+  value = constrain(value, POT_MIN, POT_MAX);
 }
 
 void loop() {
-  value = constrain(value, POT_MIN, POT_MAX);
   if (value != prevValue) {
     writePotValue(value);
     const float volts =

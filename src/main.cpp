@@ -1,118 +1,45 @@
+// clang-format off
 #include <Arduino.h>
-#include <Button.h>
-#include <Rotary.h>
-#include <SPI.h>
-#include <SevSegShift.h>
+#include <Wire.h>
+#include <LiquidCrystal_PCF8574.h>
+#include <Adafruit_I2CDevice.h>
+#include <Adafruit_INA260.h>
+// clang-format on
 
-const uint8_t POT_MIN = 0;
-const uint32_t MILLIVOLT_MIN = 1280;
-const uint8_t POT_MAX = 187;
-const uint32_t MILLIVOLT_MAX = 24000;
+LiquidCrystal_PCF8574 lcd(0x27);
 
-const uint8_t SHIFT_PIN_SHCP = 6;
-const uint8_t SHIFT_PIN_STCP = 7;
-const uint8_t SHIFT_PIN_DS = 8;
-
-const uint8_t ENCODER_A = 2;
-const uint8_t ENCODER_B = 3;
-
-const uint8_t POT_CS = 10;
-
-const uint8_t BTN = 4;
-const uint8_t RELAY = A0;
-const uint8_t LED = 5;
-
-const uint8_t numDigits = 4;
-const uint8_t digitPins[] = {A1, A2, A3, A4};
-const uint8_t segmentPins[] = {0, 2, 4, 6, 7, 1, 3, 5};
-const bool resistorsOnSegments = false;
-const uint8_t hardwareConfig = COMMON_CATHODE;
-const bool updateWithDelays = false;
-const bool leadingZeros = false;
-const bool disableDecPoint = false;
-
-SevSegShift display =
-  SevSegShift(SHIFT_PIN_DS, SHIFT_PIN_SHCP, SHIFT_PIN_STCP, 1, true);
-Rotary encoder = Rotary(ENCODER_A, ENCODER_B);
-Button btn = Button(BTN);
-
-volatile int16_t value = 0;
-int16_t prevValue = -1;
-
-bool on = false;
-
-void writePotValue(uint8_t value) {
-  SPI.beginTransaction(SPISettings(1000000, MSBFIRST, SPI_MODE0));
-  digitalWrite(POT_CS, LOW);
-
-  SPI.transfer(value);
-
-  digitalWrite(POT_CS, HIGH);
-  SPI.endTransaction();
-}
-
-void setRelayState(bool o) {
-  on = o;
-  digitalWrite(RELAY, !on);
-  digitalWrite(LED, on);
-}
+Adafruit_INA260 ina260 = Adafruit_INA260();
 
 void setup() {
-  display.begin(hardwareConfig, numDigits, (uint8_t*)digitPins,
-                (uint8_t*)segmentPins, resistorsOnSegments, updateWithDelays,
-                leadingZeros, disableDecPoint);
-  display.setBrightness(90);
-  cli();
-  TCCR1A = 0;
-  TCCR1B = 0;
-  OCR1A = 125;
-  TCCR1B = (1 << WGM12) | (1 << CS12);
-  TIMSK1 = (1 << OCIE1A);
+  Serial.begin(9600);
+  Serial.println("Nano power supply");
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
 
-  encoder.begin();
-  PCICR |= (1 << PCIE2);
-  PCMSK2 |= (1 << PCINT18) | (1 << PCINT19);
-  sei();
+  lcd.begin(16, 2);
+  lcd.home();
+  lcd.clear();
+  lcd.setBacklight(true);
 
-  SPI.begin();
-  pinMode(POT_CS, OUTPUT);
-  digitalWrite(POT_CS, HIGH);
-
-  writePotValue(value);
-
-  pinMode(RELAY, OUTPUT);
-  pinMode(LED, OUTPUT);
-  setRelayState(LOW);
-
-  btn.begin();
-}
-
-ISR(TIMER1_COMPA_vect) {
-  display.refreshDisplay();
-}
-
-ISR(PCINT2_vect) {
-  const uint8_t result = encoder.process();
-  if (result == DIR_NONE) {
-
-  } else if (result == DIR_CW) {
-    value++;
-  } else if (result == DIR_CCW) {
-    value--;
+  if (!ina260.begin()) {
+    Serial.println("Could not find INA260");
+    lcd.println("Error!");
+    lcd.println("Sensor missing");
   }
-  value = constrain(value, POT_MIN, POT_MAX);
 }
 
 void loop() {
-  if (value != prevValue) {
-    writePotValue(value);
-    const float volts =
-      map(value, POT_MIN, POT_MAX, MILLIVOLT_MIN, MILLIVOLT_MAX) / 1000.0;
-    display.setNumberF(volts, 2);
-    prevValue = value;
-  }
+  static bool pleaseUpdate = false;
+  static uint32_t lastUpdate = 0;
 
-  if (btn.pressed()) {
-    setRelayState(!on);
+  float voltage = ina260.readBusVoltage() / 1000;
+
+  if (pleaseUpdate || millis() - lastUpdate > 200) {
+    pleaseUpdate = false;
+    lastUpdate = millis();
+    lcd.home();
+    lcd.print("V: ");
+    lcd.print(voltage);
+    lcd.print(" v ");
   }
 }
